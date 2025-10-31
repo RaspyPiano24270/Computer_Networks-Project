@@ -1,7 +1,9 @@
 import socket
 import sys
 import threading
-clients = []
+clients = {}   # conn -> username
+rooms = {}     # room_name -> set of conns
+lock = threading.Lock()
 
 def broadcast(message, sender_conn):
     """Send a message to all clients except the sender."""
@@ -12,21 +14,79 @@ def broadcast(message, sender_conn):
             except:
                 clients.remove(client)
 
+def broadcast(room, message, exclude=None):
+    """Send message to everyone in a given room except the sender."""
+    with lock:
+        for c in list(rooms.get(room, set())):
+            if c != exclude:
+                try:
+                    c.sendall((message + "\n").encode())
+                except:
+                    rooms[room].discard(c)
+
+def disconnect_client(conn):
+    """Remove a client from all rooms and the clients list."""
+    with lock:
+        username = clients.pop(conn, None)
+        for r in rooms.values():
+            r.discard(conn)
+    conn.close()
+
+def handle_command(conn, line):
+    """Parse a line and execute commands."""
+    parts = line.strip().split()
+    if not parts:
+        return
+    cmd, *args = parts
+
+    if cmd.upper() == "USERNAME" and args:
+        with lock:
+            clients[conn] = args[0]
+        conn.sendall(f"[Server] Welcome {args[0]}!\n".encode())
+
+    elif cmd.upper() == "JOIN" and args:
+        room = args[0]
+        with lock:
+            rooms.setdefault(room, set()).add(conn)
+        broadcast(room, f"[Server] {clients.get(conn,'?')} joined {room}")
+
+    elif cmd.upper() == "LEAVE" and args:
+        room = args[0]
+        with lock:
+            if room in rooms and conn in rooms[room]:
+                rooms[room].remove(conn)
+        broadcast(room, f"[Server] {clients.get(conn,'?')} left {room}")
+
+    elif cmd.upper() == "MSG" and len(args) >= 2:
+        room = args[0]
+        msg = " ".join(args[1:])
+        broadcast(room, f"[{room}] {clients.get(conn,'?')}: {msg}", exclude=conn)
+
+    elif cmd.upper() == "WHO" and args:
+        room = args[0]
+        with lock:
+            members = [clients.get(c,'?') for c in rooms.get(room,set()) if c in clients]
+        conn.sendall(f"[Server] Users in {room}: {', '.join(members)}\n".encode())
+
+    else:
+        conn.sendall(b"[Server] Unknown or invalid command.\n")
+
 def handle_client(conn, addr):
     print(f"[+] Connected by {addr}")
-    clients.append(conn)
+    with lock:
+        clients[conn] = None  # placeholder until USERNAME command
+
     try:
         while True:
-            message = conn.recv(1024).decode()
-            if not message:
+            data = conn.recv(1024).decode()
+            if not data:
                 break
-            print(f"[Client {addr}] {message}")
-            broadcast(f"[{addr}] {message}", conn)
+            for line in data.strip().splitlines():
+                handle_command(conn, line)
     except ConnectionResetError:
         pass
     finally:
-        conn.close()
-        clients.remove(conn)
+        disconnect_client(conn)
         print(f"[-] Disconnected {addr}")
 
 def main():
