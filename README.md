@@ -43,6 +43,19 @@ How concurrency will be supported (at least 2 clients):
 From what we have researched you can have emulators that simulate packet loss so we can just ramp it up as we progress the levels
 The metrics that we intend to measure is whether or not the message sends and how long it takes the message to send to the other user.
 
-6 Progress Summary (Midterm Status)
+6 Chat Server Commands
+
+The chat server now supports the following commands:
+
+- `USERNAME <name>` – Set your username when connecting.
+- `JOIN <room>` – Join a chat room.
+- `LEAVE <room>` – Leave a chat room.
+- `MSG <room> <message>` – Send a message to all users in a chat room.
+- `WHO <room>` – List all users currently in a specific chat room.
+- `ROOMS` – List all active chat rooms and their user counts.
+- `HELP` – Display a help message with all available commands.
+- `QUIT` – Disconnect from the server.
+  
+7 Progress Summary (Midterm Status)
 We have been able to make it so that 2 people can be connected to the same server and chat with each other however we still need to implement the actual rooms and presence to make it like a chat room.
 
