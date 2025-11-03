@@ -67,6 +67,30 @@ def handle_command(conn, line):
         with lock:
             members = [clients.get(c,'?') for c in rooms.get(room,set()) if c in clients]
         conn.sendall(f"[Server] Users in {room}: {', '.join(members)}\n".encode())
+        
+    elif cmd.upper() == "HELP":
+        help_text = (
+            "Available commands:\n"
+            "USERNAME <name> - set your username\n"
+            "JOIN <room> - join a chat room\n"
+            "LEAVE <room> - leave a chat room\n"
+            "MSG <room> <message> - send a message to a room\n"
+            "WHO <room> - list users in a room\n"
+            "ROOMS - list active rooms and sizes\n"
+            "HELP - show this help message\n"
+            "QUIT - disconnect\n"
+        )
+        conn.sendall(help_text.encode())
+
+    elif cmd.upper() == "QUIT":
+        conn.sendall(b"[Server] Goodbye!\n")
+        disconnect_client(conn)
+        return
+
+    elif cmd.upper() == "ROOMS":
+        with lock:
+            info = [f"{r} ({len(s)})" for r, s in rooms.items()]
+        conn.sendall(f"[Server] Active rooms: {', '.join(info)}\n".encode())
 
     else:
         conn.sendall(b"[Server] Unknown or invalid command.\n")
@@ -109,3 +133,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
