@@ -1,21 +1,13 @@
 import socket
 import sys
 import threading
-clients = {}   # conn -> username
-rooms = {}     # room_name -> set of conns
+
+clients = {} # conn -> username 
+rooms = {} #room_name - > set of conns
 lock = threading.Lock()
 
-def broadcast(message, sender_conn):
-    """Send a message to all clients except the sender."""
-    for client in clients:
-        if client != sender_conn:
-            try:
-                client.sendall(message.encode())
-            except:
-                clients.remove(client)
-
 def broadcast(room, message, exclude=None):
-    """Send message to everyone in a given room except the sender."""
+    """Send a message to all in given room"""
     with lock:
         for c in list(rooms.get(room, set())):
             if c != exclude:
@@ -27,78 +19,74 @@ def broadcast(room, message, exclude=None):
 def disconnect_client(conn):
     """Remove a client from all rooms and the clients list."""
     with lock:
-        username = clients.pop(conn, None)
+        clients.pop(conn, None)
         for r in rooms.values():
             r.discard(conn)
-    conn.close()
-
+    try:
+        conn.close()
+    except:
+        pass
 def handle_command(conn, line):
     """Parse a line and execute commands."""
     parts = line.strip().split()
     if not parts:
         return
     cmd, *args = parts
-
-    if cmd.upper() == "USERNAME" and args:
+    cmd = cmd.upper()
+    
+# this is for when you connect to the server to give you a username
+#but not let you change in the actual room"""
+    if cmd == "USERNAME" and args:
+        desired = args[0]
         with lock:
-            clients[conn] = args[0]
-        conn.sendall(f"[Server] Welcome {args[0]}!\n".encode())
-
-    elif cmd.upper() == "JOIN" and args:
+            if clients.get(conn) is None:
+                clients[conn] = desired
+                try:
+                    conn.sendall(f"[Server] Welcome {desired}!\n".encode())
+                except:
+                    pass
+            else:
+                conn.sendall(b"[Server] Unknown or invalid command.\n")
+        return
+# Join command
+    if cmd == "JOIN" and args:
         room = args[0]
         with lock:
             rooms.setdefault(room, set()).add(conn)
-        broadcast(room, f"[Server] {clients.get(conn,'?')} joined {room}")
-
-    elif cmd.upper() == "LEAVE" and args:
+            uname = clients.get(conn) or "User"
+        broadcast(room, f"[Server] {uname} joined {room}")
+        return
+# Leave command
+    if cmd == "LEAVE" and args:
         room = args[0]
         with lock:
             if room in rooms and conn in rooms[room]:
                 rooms[room].remove(conn)
-        broadcast(room, f"[Server] {clients.get(conn,'?')} left {room}")
-
-    elif cmd.upper() == "MSG" and len(args) >= 2:
+            uname = clients.get(conn) or "User"
+        broadcast(room, f"[Server] {uname} left {room}")
+        return
+# message command
+    if cmd == "MSG" and len(args) >= 2:
         room = args[0]
         msg = " ".join(args[1:])
-        broadcast(room, f"[{room}] {clients.get(conn,'?')}: {msg}", exclude=conn)
-
-    elif cmd.upper() == "WHO" and args:
+        with lock:
+            uname = clients.get(conn) or "User"
+        broadcast(room, f"[{room}] {uname}: {msg}", exclude=conn)
+        return
+# who command
+    if cmd == "WHO" and args:
         room = args[0]
         with lock:
-            members = [clients.get(c,'?') for c in rooms.get(room,set()) if c in clients]
+            members = [clients.get(c) or "User" for c in rooms.get(room, set())]
         conn.sendall(f"[Server] Users in {room}: {', '.join(members)}\n".encode())
-        
-    elif cmd.upper() == "HELP":
-        help_text = (
-            "Available commands:\n"
-            "USERNAME <name> - set your username\n"
-            "JOIN <room> - join a chat room\n"
-            "LEAVE <room> - leave a chat room\n"
-            "MSG <room> <message> - send a message to a room\n"
-            "WHO <room> - list users in a room\n"
-            "ROOMS - list active rooms and sizes\n"
-            "HELP - show this help message\n"
-            "QUIT - disconnect\n"
-        )
-        conn.sendall(help_text.encode())
-
-    elif cmd.upper() == "QUIT":
-        conn.sendall(b"[Server] Goodbye!\n")
-        disconnect_client(conn)
         return
 
-    elif cmd.upper() == "ROOMS":
-        with lock:
-            info = [f"{r} ({len(s)})" for r, s in rooms.items()]
-        conn.sendall(f"[Server] Active rooms: {', '.join(info)}\n".encode())
-
-    else:
-        conn.sendall(b"[Server] Unknown or invalid command.\n")
-
+    conn.sendall(b"[Server] Unknown or invalid command.\n")
+# handles what the client wants to do
 def handle_client(conn, addr):
     print(f"[+] Connected by {addr}")
     with lock:
-        clients[conn] = None  # placeholder until USERNAME command
+        clients[conn] = None
 
     try:
         while True:
@@ -112,7 +100,7 @@ def handle_client(conn, addr):
     finally:
         disconnect_client(conn)
         print(f"[-] Disconnected {addr}")
-
+# the actual connection
 def main():
     if len(sys.argv) != 2:
         print(f"Usage: python {sys.argv[0]} <listen_port>")
@@ -133,4 +121,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
