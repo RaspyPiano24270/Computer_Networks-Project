@@ -42,7 +42,7 @@ class ChatClient:
         quit_button = tk.Button(root, text='Quit', command=self.quit)
         quit_button.pack(pady=(0,5))
 
-        tk.Label(root, text='Commands: JOIN <room>, LEAVE <room>, MSG <room> <text>, WHO <room>').pack(pady=(0,5))
+        tk.Label(root, text='Commands: JOIN <room>, LEAVE <room>, MSG <room> <text>, WHO <room>, ROOMS').pack(pady=(0,5))
 
 #thread
         self.running = True
