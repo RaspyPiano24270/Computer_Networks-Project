@@ -65,6 +65,14 @@ def handle_command(conn, line):
             uname = clients.get(conn) or "User"
         broadcast(room, f"[Server] {uname} left {room}")
         return
+# rooms command
+    if cmd == "ROOMS":
+        with lock:
+            info = [room for room in rooms.keys()]
+    conn.sendall(f"[Server] Active rooms: {', '.join(info)}\n".encode())
+    return
+
+
 # message command
     if cmd == "MSG" and len(args) >= 2:
         room = args[0]
