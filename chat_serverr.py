@@ -2,130 +2,111 @@ import socket
 import sys
 import threading
 
-clients = {} # conn -> username 
-rooms = {} #room_name - > set of conns
+clients = {}  # addr (ip,port) -> username
+rooms = {}    # room_name -> set of addr
 lock = threading.Lock()
 
 def broadcast(room, message, exclude=None):
-    """Send a message to all in given room"""
+    """Send a message to all clients in a room, except exclude."""
     with lock:
-        for c in list(rooms.get(room, set())):
-            if c != exclude:
+        for addr in list(rooms.get(room, set())):
+            if addr != exclude:
                 try:
-                    c.sendall((message + "\n").encode())
+                    server_sock.sendto((message + "\n").encode(), addr)
                 except:
-                    rooms[room].discard(c)
+                    rooms[room].discard(addr)
 
-def disconnect_client(conn):
-    """Remove a client from all rooms and the clients list."""
+def disconnect_client(addr):
+    """Remove client from all rooms and clients dict."""
     with lock:
-        clients.pop(conn, None)
+        clients.pop(addr, None)
         for r in rooms.values():
-            r.discard(conn)
-    try:
-        conn.close()
-    except:
-        pass
-def handle_command(conn, line):
-    """Parse a line and execute commands."""
-    parts = line.strip().split()
+            r.discard(addr)
+
+def handle_command(data, addr):
+    parts = data.strip().split()
     if not parts:
         return
     cmd, *args = parts
     cmd = cmd.upper()
-    
-# this is for when you connect to the server to give you a username
-#but not let you change in the actual room"""
+
     if cmd == "USERNAME" and args:
         desired = args[0]
         with lock:
-            if clients.get(conn) is None:
-                clients[conn] = desired
+            if addr not in clients:
+                clients[addr] = desired
                 try:
-                    conn.sendall(f"[Server] Welcome {desired}!\n".encode())
+                    server_sock.sendto(f"[Server] Welcome {desired}!\n".encode(), addr)
                 except:
                     pass
             else:
-                conn.sendall(b"[Server] Unknown or invalid command.\n")
+                server_sock.sendto(b"[Server] Unknown or invalid command.\n", addr)
         return
-# Join command
+
     if cmd == "JOIN" and args:
         room = args[0]
         with lock:
-            rooms.setdefault(room, set()).add(conn)
-            uname = clients.get(conn) or "User"
+            rooms.setdefault(room, set()).add(addr)
+            uname = clients.get(addr, "User")
         broadcast(room, f"[Server] {uname} joined {room}")
         return
-# Leave command
+
     if cmd == "LEAVE" and args:
         room = args[0]
         with lock:
-            if room in rooms and conn in rooms[room]:
-                rooms[room].remove(conn)
-            uname = clients.get(conn) or "User"
+            if room in rooms and addr in rooms[room]:
+                rooms[room].remove(addr)
+            uname = clients.get(addr, "User")
         broadcast(room, f"[Server] {uname} left {room}")
         return
-# rooms command
+
     if cmd == "ROOMS":
         with lock:
             info = [room for room in rooms.keys()]
-    conn.sendall(f"[Server] Active rooms: {', '.join(info)}\n".encode())
-    return
+        server_sock.sendto(f"[Server] Active rooms: {', '.join(info)}\n".encode(), addr)
+        return
 
-
-# message command
     if cmd == "MSG" and len(args) >= 2:
         room = args[0]
         msg = " ".join(args[1:])
         with lock:
-            uname = clients.get(conn) or "User"
-        broadcast(room, f"[{room}] {uname}: {msg}", exclude=conn)
+            uname = clients.get(addr, "User")
+        broadcast(room, f"[{room}] {uname}: {msg}", exclude=addr)
         return
-# who command
+
     if cmd == "WHO" and args:
         room = args[0]
         with lock:
-            members = [clients.get(c) or "User" for c in rooms.get(room, set())]
-        conn.sendall(f"[Server] Users in {room}: {', '.join(members)}\n".encode())
+            members = [clients.get(c, "User") for c in rooms.get(room, set())]
+        server_sock.sendto(f"[Server] Users in {room}: {', '.join(members)}\n".encode(), addr)
         return
 
-    conn.sendall(b"[Server] Unknown or invalid command.\n")
-# handles what the client wants to do
-def handle_client(conn, addr):
-    print(f"[+] Connected by {addr}")
-    with lock:
-        clients[conn] = None
+    server_sock.sendto(b"[Server] Unknown or invalid command.\n", addr)
 
-    try:
-        while True:
-            data = conn.recv(1024).decode()
+def server_loop():
+a    while True:
+        try:
+            data, addr = server_sock.recvfrom(4096)
             if not data:
-                break
-            for line in data.strip().splitlines():
-                handle_command(conn, line)
-    except ConnectionResetError:
-        pass
-    finally:
-        disconnect_client(conn)
-        print(f"[-] Disconnected {addr}")
-# the actual connection
+                disconnect_client(addr)
+                continue
+            handle_command(data.decode(), addr)
+        except Exception as e:
+            print(f"[Server] Error: {e}")
+
 def main():
+    global server_sock
     if len(sys.argv) != 2:
         print(f"Usage: python {sys.argv[0]} <listen_port>")
         sys.exit(1)
 
-    host = "0.0.0.0"
     port = int(sys.argv[1])
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_sock.bind(("0.0.0.0", port))
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
+    print(f"[*] UDP Server listening on 0.0.0.0:{port}")
 
-    print(f"[*] Server listening on {host}:{port}")
-
-    while True:
-        conn, addr = server_socket.accept()
-        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+    server_loop()
 
 if __name__ == "__main__":
     main()
