@@ -47,15 +47,22 @@ The metrics that we intend to measure is whether or not the message sends and ho
 
 The chat server now supports the following commands:
 
-- `USERNAME <name>` – Set your username when connecting.
 - `JOIN <room>` – Join a chat room.
 - `LEAVE <room>` – Leave a chat room.
 - `MSG <room> <message>` – Send a message to all users in a chat room.
 - `WHO <room>` – List all users currently in a specific chat room.
 - `ROOMS` – List all active chat rooms and their user counts.
-- `HELP` – Display a help message with all available commands.
-- `QUIT` – Disconnect from the server.
+
+
   
 7 Progress Summary (Midterm Status)
 We have been able to make it so that 2 people can be connected to the same server and chat with each other however we still need to implement the actual rooms and presence to make it like a chat room.
+
+8 Run Instructions 
+to the tin the code it is pretty simple all you have to do is put python followed by the code name, and for the client side you do bassically the same thing however in between the code name and the port number you put the ip of the server
+example:
+python chat_serverr.py 5000
+python chat_clientt.py 127.0.0.1 5000
+
+
 
