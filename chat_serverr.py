@@ -218,7 +218,7 @@ def print_client_metrics(client_addr):
     print(f"95th percentile latency (ms): {percentile_95:.2f}")
     print(f"Goodput (messages/sec): {goodput:.2f}")
     print(f"Retransmissions per KB: {retrans_per_kb:.2f}")
-    print(f"Out-of-order messages: {out_of_order} ({out_of_order_pct:.2f}%)")
+    print(f"Out of order messages: {out_of_order} ({out_of_order_pct:.2f}%)")
     print(f"Max concurrent clients: {max_clients_connected}")
     print("---------------------------")
 # This does like decoding receiving bassically everything the server need to do
@@ -285,3 +285,4 @@ def main():
         print("[Server] Server stopped")
 if __name__ == "__main__":
     main()
+
