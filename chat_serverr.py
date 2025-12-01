@@ -2,9 +2,9 @@ import socket
 import threading
 import time
 
-MAX_PACKET_SIZE = 4096
-WINDOW_SIZE = 100
-ACK_TIMEOUT_SECONDS = 1.0
+max_packet = 4096
+window_size = 100
+ack_timeout = 1.0
 
 thread_lock = threading.Lock()
 
@@ -177,7 +177,7 @@ def retransmit_unacked_packets(sock):
                     if client_addr in client_metrics and seq_num in client_metrics[client_addr].get("acks_received", set()):
                         continue  
 
-                    if current_time - last_sent_time > ACK_TIMEOUT_SECONDS:
+                    if current_time - last_sent_time > ack_timeout:
                         sock.sendto(create_packet(seq_num, state["expected_sequence"] - 1, message), client_addr)
                         if client_addr in client_metrics:
                             client_metrics[client_addr]["retransmissions_count"] += 1
@@ -224,7 +224,7 @@ def print_client_metrics(client_addr):
 def server_loop():
     while True:
         try:
-            packet, client_addr = server_socket.recvfrom(MAX_PACKET_SIZE)
+            packet, client_addr = server_socket.recvfrom(max_packet)
         except Exception as e:
             print("[Server] Socket error:", e)
             continue
@@ -272,3 +272,4 @@ def main():
         print("[Server] Server stopped")
 if __name__ == "__main__":
     main()
+
