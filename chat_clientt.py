@@ -21,6 +21,7 @@ def decode_packet(packet_bytes):
 # connects to the client
 class ChatClient:
     def __init__(self, server_ip, server_port):
+        self.retransmissions = 0
         self.server_address = (server_ip, server_port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.settimeout(0.5)
@@ -44,12 +45,14 @@ class ChatClient:
                     message, last_sent_time, retrans_count = self.send_window[seq_num]
 
                     if seq_num in self.acks_received:
-                        continue  # Already ACKed
+                        continue 
 
                     if current_time - last_sent_time > ACK_TIMEOUT_SECONDS:
                         self.socket.sendto(self.create_packet(seq_num, 0, message), self.server_address)
                         self.send_window[seq_num] = (message, current_time, retrans_count + 1)
+                        self.retransmissions += 1
                         print(f"[Client] retransmitted seq {seq_num}")
+                        
 # always running waiting for acks
     def receive_ack_loop(self):
         while self.running:
@@ -71,6 +74,11 @@ class ChatClient:
                 continue
             except Exception as e:
                 print("[Client] Socket error:", e)
+# user retrsmissions
+    def user_retansmissions(self):
+        print("\n--- Metrics ---")
+        print(f"Retransmissions: {self.retransmissions}")
+        print("---------------------------")
 # text and inputs that popup when you first connect
     def start_up_messages(self):
         username = input("Enter username: ").strip()
@@ -90,6 +98,7 @@ class ChatClient:
             self.send_message(user_input)
 
         self.running = False
+        self.user_retansmissions()
 # sends message to the server
     def send_message(self, message):
         with self.thread_lock:
