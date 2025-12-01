@@ -1,10 +1,15 @@
 import socket
 import threading
 import time
-
+import random
 max_packet = 4096
 window_size = 100
 ack_timeout = 1.0
+
+#packetloss for random loss profile
+packet_loss = False
+small_loss=.05
+big_loss =.10
 
 thread_lock = threading.Lock()
 
@@ -178,7 +183,9 @@ def retransmit_unacked_packets(sock):
                         continue  
 
                     if current_time - last_sent_time > ack_timeout:
-                        sock.sendto(create_packet(seq_num, state["expected_sequence"] - 1, message), client_addr)
+                        packet = create_packet(seq_num, state["expected_sequence"] - 1, message)
+                        if packet_loss and random.random() < random.uniform(small_loss, big_loss):
+                            sock.sendto(packet, client_addr)
                         if client_addr in client_metrics:
                             client_metrics[client_addr]["retransmissions_count"] += 1
                         send_window[seq_num] = (message, current_time, retrans_count + 1)
@@ -204,27 +211,25 @@ def print_client_metrics(client_addr):
     duration_sec = (end - start) / 1000 if start and end and end > start else 0
     goodput = metrics.get("messages_received", 0) / duration_sec if duration_sec > 0 else 0
 
-    bytes_recv = metrics.get("bytes_received", 0)
-    retransmissions = metrics.get("retransmissions_count", 0)
-    retrans_per_kb = retransmissions / (bytes_recv / 1024) if bytes_recv else 0
-
     total_msgs = metrics.get("messages_received", 0)
     out_of_order = metrics.get("out_of_order_count", 0)
     out_of_order_pct = (out_of_order / total_msgs) * 100 if total_msgs else 0
-#print out the metrics
+
     print("\n--- Metrics ---")
     print(f"Average latency (ms): {avg_latency:.2f}")
     print(f"95th percentile latency (ms): {percentile_95:.2f}")
     print(f"Goodput (messages/sec): {goodput:.2f}")
-    print(f"Retransmissions per KB: {retrans_per_kb:.2f}")
     print(f"Out-of-order messages: {out_of_order} ({out_of_order_pct:.2f}%)")
     print(f"Max concurrent clients: {max_clients_connected}")
-    print("---------------------------")
+    print("-------------------------------------")
+
 # This does like decoding receiving bassically everything the server need to do
 def server_loop():
     while True:
         try:
             packet, client_addr = server_socket.recvfrom(max_packet)
+            if packet_loss and random.random() < random.uniform(small_loss, big_loss):
+                continue
         except Exception as e:
             print("[Server] Socket error:", e)
             continue
@@ -272,4 +277,3 @@ def main():
         print("[Server] Server stopped")
 if __name__ == "__main__":
     main()
-
