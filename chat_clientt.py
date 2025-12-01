@@ -34,12 +34,6 @@ class ChatClient:
 # creates the packet
     def create_packet(self, seq_num, ack_num, message):
         return f"{seq_num}|{ack_num}|{message}".encode()
-# sends the packet
-    def send_packet(self, seq_num):
-        with self.thread_lock:
-            message, _, retrans_count = self.send_window[seq_num]
-            self.socket.sendto(self.create_packet(seq_num, 0, message), self.server_address)
-            self.send_window[seq_num] = (message, time.time(), retrans_count)
 #resends packets that have ot been acknowledged 
     def resend_packets_loop(self):
         while self.running:
