@@ -3,9 +3,9 @@ import threading
 import time
 import sys
 
-MAX_PACKET_SIZE = 4096
-WINDOW_SIZE = 100
-ACK_TIMEOUT_SECONDS = 1.0
+max_packet = 4096
+window_size = 100
+ack_timeout = 1.0
 
 # decodes the packet
 def decode_packet(packet_bytes):
@@ -47,7 +47,7 @@ class ChatClient:
                     if seq_num in self.acks_received:
                         continue 
 
-                    if current_time - last_sent_time > ACK_TIMEOUT_SECONDS:
+                    if current_time - last_sent_time > ack_timeout:
                         self.socket.sendto(self.create_packet(seq_num, 0, message), self.server_address)
                         self.send_window[seq_num] = (message, current_time, retrans_count + 1)
                         self.retransmissions += 1
@@ -57,7 +57,7 @@ class ChatClient:
     def receive_ack_loop(self):
         while self.running:
             try:
-                data, _ = self.socket.recvfrom(MAX_PACKET_SIZE)
+                data, _ = self.socket.recvfrom(max_packet)
                 seq_num, ack_num, payload = decode_packet(data)
 
                 if payload == "" and seq_num == 0:
@@ -102,7 +102,7 @@ class ChatClient:
 # sends message to the server
     def send_message(self, message):
         with self.thread_lock:
-            if self.next_sequence_number < self.send_base + WINDOW_SIZE:
+            if self.next_sequence_number < self.send_base + window_size:
                 seq_num = self.next_sequence_number
                 self.send_window[seq_num] = (message, time.time(), 0)
                 self.socket.sendto(self.create_packet(seq_num, 0, message), self.server_address)
@@ -123,3 +123,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
