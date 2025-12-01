@@ -185,7 +185,6 @@ def retransmit_unacked_packets(sock):
                         print(f"[Server] Retransmitted packet seq {seq_num} to {client_addr}")
 #gets information for metrics
 def print_client_metrics(client_addr):
-    import statistics
 
     metrics = client_metrics.get(client_addr)
     if not metrics:
@@ -218,7 +217,7 @@ def print_client_metrics(client_addr):
     print(f"95th percentile latency (ms): {percentile_95:.2f}")
     print(f"Goodput (messages/sec): {goodput:.2f}")
     print(f"Retransmissions per KB: {retrans_per_kb:.2f}")
-    print(f"Out of order messages: {out_of_order} ({out_of_order_pct:.2f}%)")
+    print(f"Out-of-order messages: {out_of_order} ({out_of_order_pct:.2f}%)")
     print(f"Max concurrent clients: {max_clients_connected}")
     print("---------------------------")
 # This does like decoding receiving bassically everything the server need to do
@@ -240,18 +239,6 @@ def server_loop():
             continue
 
         with thread_lock:
-            if client_addr not in client_metrics:
-                client_metrics[client_addr] = {
-                    "retransmissions_count": 0,
-                    "out_of_order_count": 0,
-                    "latency_list": [],
-                    "messages_received": 0,
-                    "bytes_received": 0,
-                    "start_timestamp": None,
-                    "end_timestamp": None,
-                    "total_packets_received": 0,
-                    "acks_received": set(),
-                }
 
             client_metrics[client_addr]["acks_received"].add(ack_num)
             client_metrics[client_addr]["total_packets_received"] += 1
@@ -285,4 +272,3 @@ def main():
         print("[Server] Server stopped")
 if __name__ == "__main__":
     main()
-
