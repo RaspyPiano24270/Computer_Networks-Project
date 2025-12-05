@@ -61,8 +61,10 @@ We have been able to make it so that 2 people can be connected to the same serve
 8 Run Instructions 
 to the tin the code it is pretty simple all you have to do is put python followed by the code name, and for the client side you do bassically the same thing however in between the code name and the port number you put the ip of the server
 example:
-python chat_serverr.py 
-python chat_clientt.py <server ip> 5000
+
+python chat_serverr_done.py 
+
+python chat_clientt_done.py <server ip> 5000
 
 
 
